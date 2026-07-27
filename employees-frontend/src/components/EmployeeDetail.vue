@@ -89,7 +89,7 @@ async function createBenefit() {
   }
   await fetch(`http://localhost:8080/api/employees/${props.employeeId}/benefits`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({
       name: form.value.name,
       amount: parseFloat(form.value.amount)

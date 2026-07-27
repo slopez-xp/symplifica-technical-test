@@ -3,7 +3,7 @@
     <div class="section-header">
       <h2><i class="fas fa-users"></i> Employees</h2>
       <button @click="openCreateModal">
-        <i class="fas fa-plus"></i> New Employee
+        <i class="fas fa-plus"></i>
       </button>
     </div>
 
@@ -111,6 +111,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useAuth } from '../stores/auth'
+const { getToken } = useAuth()
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${getToken()}`
+  }
+}
 
 const emit = defineEmits(['employee-selected', 'employees-loaded', 'data-changed'])
 
@@ -129,7 +138,11 @@ const benefitLocation = ref(null)
 onMounted(async () => { await loadEmployees() })
 
 async function loadEmployees() {
-  const res = await fetch('http://localhost:8080/api/employees')
+  const res = await fetch('http://localhost:8080/api/employees', {
+    headers: {
+      'Authorization': `Bearer ${getToken()}`
+    }
+  })
   employees.value = await res.json()
   emit('employees-loaded', employees.value.length)
 }
@@ -169,7 +182,7 @@ async function createEmployee() {
   if (!validateForm()) return
   await fetch('http://localhost:8080/api/employees', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(form.value)
   })
   closeModal()
@@ -181,7 +194,7 @@ async function updateEmployee() {
   if (!validateForm()) return
   await fetch(`http://localhost:8080/api/employees/${editingId.value}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(form.value)
   })
   closeModal()
@@ -190,7 +203,10 @@ async function updateEmployee() {
 }
 
 async function deleteEmployee(id) {
-  await fetch(`http://localhost:8080/api/employees/${id}`, { method: 'DELETE' })
+  await fetch(`http://localhost:8080/api/employees/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders()
+  })
   if (selected.value && selected.value.id === id) {
     selected.value = null
     emit('employee-selected', null)
@@ -212,14 +228,22 @@ function selectEmployee(emp) {
 async function openBenefits(emp) {
   benefitEmployee.value = emp
   await loadBenefits(emp.id)
-  const res = await fetch(`http://localhost:8080/api/employees/${emp.id}`)
+  const res = await fetch(`http://localhost:8080/api/employees/${emp.id}`, {
+    headers: {
+      'Authorization': `Bearer ${getToken()}`
+    }
+  })
   const detail = await res.json()
   benefitLocation.value = detail.location
   showBenefits.value = true
 }
 
 async function loadBenefits(id) {
-  const res = await fetch(`http://localhost:8080/api/employees/${id}/benefits`)
+  const res = await fetch(`http://localhost:8080/api/employees/${id}/benefits`, {
+    headers: {
+      'Authorization': `Bearer ${getToken()}`
+    }
+  })
   benefits.value = await res.json()
 }
 
@@ -230,7 +254,7 @@ async function createBenefit() {
   }
   await fetch(`http://localhost:8080/api/employees/${benefitEmployee.value.id}/benefits`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({
       name: benefitForm.value.name,
       amount: parseFloat(benefitForm.value.amount)
@@ -242,7 +266,8 @@ async function createBenefit() {
 
 async function deleteBenefit(benefitId) {
   await fetch(`http://localhost:8080/api/employees/${benefitEmployee.value.id}/benefits/${benefitId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: authHeaders()
   })
   await loadBenefits(benefitEmployee.value.id)
 }

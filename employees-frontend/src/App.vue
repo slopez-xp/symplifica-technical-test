@@ -1,28 +1,37 @@
 <template>
   <div>
-    <nav class="topbar">
-      <div class="topbar-brand">
-        <i class="fas fa-building"></i>
-        <span>Symplifica</span>
-      </div>
-    </nav>
+    <LoginView v-if="!loggedIn" @logged-in="onLoggedIn" />
 
-    <div class="content">
-      <div class="top-grid">
-        <div class="image-card">
-          <img src="../src/assets/Greeting.png" alt="Dashboard" />
+    <div v-else>
+      <nav class="topbar">
+        <div class="topbar-brand">
+          <i class="fas fa-building"></i>
+          <span>Symplifica</span>
         </div>
+        <button class="logout-btn" @click="logout">
+          <i class="fas fa-arrow-right-from-bracket"></i> Logout
+        </button>
+      </nav>
 
-        <div class="map-card">
-          <EmployeeMap :employees="mapEmployees" :selected-id="selectedId" />
+      <div>
+        <div class="content">
+          <div class="top-grid">
+            <div class="image-card">
+              <img src="../src/assets/Greeting.png" alt="Dashboard" />
+            </div>
+
+            <div class="map-card">
+              <EmployeeMap :employees="mapEmployees" :selected-id="selectedId" />
+            </div>
+          </div>
+
+          <EmployeeList 
+            @employee-selected="onEmployeeSelected" 
+            @employees-loaded="onEmployeesLoaded"
+            @data-changed="loadMapData"
+          />
         </div>
       </div>
-
-      <EmployeeList 
-        @employee-selected="onEmployeeSelected" 
-        @employees-loaded="onEmployeesLoaded"
-        @data-changed="loadMapData"
-      />
     </div>
   </div>
 </template>
@@ -31,25 +40,41 @@
 import { ref, onMounted } from 'vue'
 import EmployeeList from './components/EmployeeList.vue'
 import EmployeeMap from './components/EmployeeMap.vue'
+import LoginView from './components/LoginView.vue'
+import { useAuth } from './stores/auth'
 
+const { isLoggedIn, clearToken, getToken } = useAuth()
+const loggedIn = ref(isLoggedIn())
 const mapEmployees = ref([])
 const selectedId = ref(null)
 const totalEmployees = ref(0)
 const totalBenefits = ref(0)
 const mappedEmployees = ref(0)
 
+function authHeaders() {
+  return {
+    'Authorization': `Bearer ${getToken()}`
+  }
+}
+
 onMounted(async () => {
-  await loadMapData()
+  if (loggedIn.value) {
+    await loadMapData()
+  }
 })
 
 async function loadMapData() {
-  const res = await fetch('http://localhost:8080/api/employees')
+  const res = await fetch('http://localhost:8080/api/employees', {
+    headers: authHeaders()
+  })
   const list = await res.json()
   totalEmployees.value = list.length
 
   const details = await Promise.all(
     list.map(emp =>
-      fetch(`http://localhost:8080/api/employees/${emp.id}`).then(r => r.json())
+      fetch(`http://localhost:8080/api/employees/${emp.id}`, {
+        headers: authHeaders()
+      }).then(r => r.json())
     )
   )
 
@@ -59,7 +84,9 @@ async function loadMapData() {
 
   const benefits = await Promise.all(
     list.map(emp =>
-      fetch(`http://localhost:8080/api/employees/${emp.id}/benefits`).then(r => r.json())
+      fetch(`http://localhost:8080/api/employees/${emp.id}/benefits`, {
+        headers: authHeaders()
+      }).then(r => r.json())
     )
   )
   totalBenefits.value = benefits.flat().length
@@ -68,7 +95,9 @@ async function loadMapData() {
 async function onEmployeeSelected(emp) {
   selectedId.value = emp ? emp.id : null
   if (emp) {
-    const res = await fetch(`http://localhost:8080/api/employees/${emp.id}`)
+    const res = await fetch(`http://localhost:8080/api/employees/${emp.id}`, {
+      headers: authHeaders()
+    })
     const detail = await res.json()
     if (detail.location && !mapEmployees.value.find(e => e.employee.id === emp.id)) {
       mapEmployees.value.push(detail)
@@ -78,6 +107,16 @@ async function onEmployeeSelected(emp) {
 
 function onEmployeesLoaded(count) {
   totalEmployees.value = count
+}
+
+async function onLoggedIn() {
+  loggedIn.value = true
+  await loadMapData()
+}
+
+function logout() {
+  clearToken()
+  loggedIn.value = false
 }
 </script>
 
@@ -93,11 +132,14 @@ body {
 .topbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  position: sticky;
   padding: 0 24px;
   height: 56px;
   background: #1a1d27;
   border-bottom: 1px solid #2d3148;
-  border-radius: 0 0 12px 12px;  position: sticky;
+  border-radius: 0 0 12px 12px;  
+  position: sticky;
   top: 0;
   z-index: 1000;
 }
@@ -225,4 +267,18 @@ h2, h3, h4 { color: #f1f5f9; font-weight: 600; }
 }
 
 .section-header h2 i { color: #6366f1; }
+
+.logout-btn {
+  background: transparent;
+  border: 1px solid #2d3148;
+  color: #64748b;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.logout-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: transparent;
+}
 </style>
