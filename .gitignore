@@ -1,0 +1,12 @@
+# Backend
+employees-api/target/
+employees-api/.mvn/
+*.class
+
+# Frontend
+employees-frontend/node_modules/
+employees-frontend/dist/
+
+# IDE
+.idea/
+*.iml
