@@ -21,6 +21,7 @@ PruebaTecnicaSymplifica/
 - Spring Boot 4.1.0
 - Spring Data JPA
 - H2 Database (en memoria)
+- Spring Security + JWT (jjwt 0.12.6)
 - OpenStreetMap Nominatim API
 
 **Frontend**
@@ -32,17 +33,26 @@ PruebaTecnicaSymplifica/
 
 ---
 
-## Requisitos previos
+## Opción 1 — Docker (recomendado)
 
+```bash
+docker-compose up --build
+```
+
+- Frontend: http://localhost
+- Backend: http://localhost:8080
+- Credenciales: `admin` / `symplifica123`
+
+---
+
+## Opción 2 — Ejecución manual
+
+### Requisitos previos
 - Java 21
 - Node.js 18 o superior
 - Maven (o usar el wrapper `./mvnw` incluido)
 
----
-
-## Cómo ejecutar el proyecto
-
-### 1. Backend
+### Backend
 
 ```bash
 cd employees-api
@@ -51,7 +61,7 @@ cd employees-api
 
 El servidor arranca en `http://localhost:8080`
 
-### 2. Frontend
+### Frontend
 
 ```bash
 cd employees-frontend
@@ -65,30 +75,55 @@ El dashboard abre en `http://localhost:5173`
 
 ---
 
+## Autenticación
+
+Todas las rutas de la API están protegidas con JWT excepto `/auth/login`.
+
+**Login:**
+```
+POST http://localhost:8080/auth/login
+{
+  "username": "admin",
+  "password": "symplifica123"
+}
+```
+
+El token retornado debe enviarse en cada request:
+```
+Authorization: Bearer <token>
+```
+
+El token expira en 8 horas.
+
+---
+
 ## Funcionalidades implementadas
 
 **Empleados**
 - Listar, crear, editar y eliminar empleados
 - Validación de campos obligatorios y formato de email
-- Coordenadas geográficas obtenidas en tiempo real desde OpenStreetMap Nominatim
-- Datos de ejemplo cargados automáticamente al iniciar el servidor
+- Coordenadas geográficas en tiempo real desde OpenStreetMap Nominatim
 
 **Beneficios**
 - CRUD completo de beneficios asociados a cada empleado
-- Gestión desde un modal por empleado
+- Gestión desde modal por empleado
 
 **Dashboard**
-- Mapa interactivo mundial con Leaflet — muestra la ubicación de cada empleado
-- Al seleccionar un empleado en la tabla, el mapa vuela a su ubicación
-- Métricas en tiempo real: total de empleados, beneficios y empleados georeferenciados
+- Mapa interactivo mundial con Leaflet
+- Al seleccionar un empleado el mapa vuela a su ubicación
+- Métricas en tiempo real: empleados, beneficios y empleados georeferenciados
 - Tema oscuro y diseño responsive
 
 ---
 
 ## Endpoints disponibles
 
-### Empleados
+### Autenticación
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | /auth/login | Obtener token JWT |
 
+### Empleados
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | /api/employees | Listar todos |
@@ -98,7 +133,6 @@ El dashboard abre en `http://localhost:5173`
 | DELETE | /api/employees/{id} | Eliminar empleado |
 
 ### Beneficios
-
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | /api/employees/{id}/benefits | Listar beneficios |
@@ -108,6 +142,15 @@ El dashboard abre en `http://localhost:5173`
 ---
 
 ## Ejemplo de uso
+
+**Login:**
+```json
+POST /auth/login
+{
+  "username": "admin",
+  "password": "symplifica123"
+}
+```
 
 **Crear empleado:**
 ```json
@@ -128,20 +171,12 @@ POST /api/employees/1/benefits
 }
 ```
 
-**Detalle con coordenadas:**
-```json
-GET /api/employees/1
-{
-  "employee": { "id": 1, "name": "María García", "city": "Bogotá" },
-  "location": { "latitude": "4.6533817", "longitude": "-74.0836331" }
-}
-```
-
 ---
 
 ## Arquitectura del backend
 
 ```
+security/     → JWT, filtros y configuración de Spring Security
 controller/   → recibe y responde peticiones HTTP
 service/      → lógica de negocio
 repository/   → acceso a base de datos (JPA)
@@ -150,29 +185,41 @@ model/        → entidades y DTOs
 
 ---
 
+## Pruebas unitarias
+
+```bash
+cd employees-api
+./mvnw test
+```
+
+Cubre: `getAll`, `create`, `delete` y manejo de errores en `update`.
+
+---
+
 ## Decisiones técnicas
 
 - **H2 en memoria** — simplifica el setup para evaluación. Reemplazable por PostgreSQL cambiando la dependencia y `application.properties`.
 - **Cache de coordenadas** — las coordenadas de cada ciudad se almacenan en memoria durante la sesión para respetar el límite de 1 req/seg de Nominatim.
 - **Arquitectura por capas** — separación estricta Controller → Service → Repository siguiendo principios MVC y Clean Code.
-- **Backend único** — se optó por un solo backend en Spring Boot en lugar de dos servicios separados, consolidando employees y benefits en una sola API para simplificar el setup de evaluación.
+- **Security en paquete propio** — JWT, filtros y configuración de seguridad agrupados en `/security` por cohesión, no dispersados en las carpetas MVC.
+- **Backend único** — se consolidaron employees y benefits en una sola API para simplificar el setup de evaluación.
+- **Credenciales hardcodeadas** — en producción se usarían variables de entorno (`JWT_SECRET`, `ADMIN_PASSWORD`).
 
 ---
 
 ## Limitaciones conocidas
 
-- **H2 es volátil** — los datos se pierden al reiniciar el servidor. Los datos de ejemplo se recargan automáticamente desde `data.sql`.
-- **Nominatim rate limit** — la API de OpenStreetMap permite 1 solicitud por segundo. En la primera carga puede haber un breve retraso para resolver coordenadas. Las ciudades ya consultadas se cachean para no repetir llamadas.
+- **H2 es volátil** — los datos se pierden al reiniciar. Los datos de ejemplo se recargan automáticamente desde `data.sql`.
+- **Nominatim rate limit** — permite 1 solicitud por segundo. En la primera carga puede haber un breve retraso. Las ciudades consultadas se cachean para no repetir llamadas.
+- **Usuario único hardcodeado** — sistema de autenticación de demostración. En producción se implementaría una base de usuarios con contraseñas encriptadas.
 
 ---
 
 ## Requerimientos opcionales implementados
 
-- ✅ DELETE de beneficios
-- ✅ Datos de ejemplo precargados (`data.sql`)
-- ⬜ Autenticación JWT
-- ⬜ Pruebas unitarias
-- ⬜ Docker
+- ✅ Autenticación JWT
+- ✅ Pruebas unitarias
+- ✅ Docker
 
 ---
 
@@ -180,8 +227,10 @@ model/        → entidades y DTOs
 
 Full-stack solution for the Symplifica technical challenge.
 
-**Backend:** REST API built with Java 21 and Spring Boot. Manages employees and benefits with full CRUD. Integrates OpenStreetMap Nominatim to resolve geographic coordinates by city name. Coordinates are cached in memory to respect the 1 req/sec rate limit.
+**Backend:** REST API built with Java 21 and Spring Boot. Full CRUD for employees and benefits. JWT authentication protecting all endpoints. OpenStreetMap Nominatim integration for real-time geocoding with in-memory caching.
 
-**Frontend:** Vue 3 dashboard with an interactive Leaflet map, employee table with inline actions, and a benefits modal per employee.
+**Frontend:** Vue 3 dashboard with an interactive Leaflet map, employee table with inline actions, benefits modal per employee, and login/logout flow.
 
-**Run:** Start the backend with `./mvnw spring-boot:run` and the frontend with `npm run dev`. Both must run simultaneously.
+**Run with Docker:** `docker-compose up --build` — frontend at http://localhost, backend at http://localhost:8080.
+
+**Credentials:** `admin` / `symplifica123`

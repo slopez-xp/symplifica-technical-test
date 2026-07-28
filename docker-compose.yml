@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./employees-api
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  frontend:
+    build: ./employees-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
