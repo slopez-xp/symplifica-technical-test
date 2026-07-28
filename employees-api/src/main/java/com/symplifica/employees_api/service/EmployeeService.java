@@ -29,7 +29,7 @@ public class EmployeeService {
 
     public EmployeeDetail getById(Long id) {
         Employee employee = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
         LocationData location = openStreetMapService.getLocation(employee.getCity());
         return new EmployeeDetail(employee, location);
     }
