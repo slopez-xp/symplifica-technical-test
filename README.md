@@ -185,6 +185,8 @@ model/        → entidades y DTOs
 
 ---
 
+![Alt text for accessibility](images/diagram.png)
+
 ## Pruebas unitarias
 
 ```bash
